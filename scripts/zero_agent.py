@@ -12,14 +12,23 @@ import gymnasium as gym
 import torch
 
 import isaaclab_tasks  # noqa: F401
-from isaaclab_tasks.utils import add_launcher_args, launch_simulation, resolve_task_config
+from isaaclab_tasks.utils import (
+    add_launcher_args,
+    launch_simulation,
+    resolve_task_config,
+)
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Zero agent for Isaac Lab environments.")
 parser.add_argument(
-    "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
+    "--disable_fabric",
+    action="store_true",
+    default=False,
+    help="Disable fabric and use USD I/O operations.",
 )
-parser.add_argument("--num_envs", type=int, default=None, help="Number of environments to simulate.")
+parser.add_argument(
+    "--num_envs", type=int, default=None, help="Number of environments to simulate."
+)
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 # append AppLauncher cli args
 add_launcher_args(parser)
@@ -29,7 +38,8 @@ args_cli, hydra_args = parser.parse_known_args()
 # pass remaining args to Hydra
 sys.argv = [sys.argv[0]] + hydra_args
 
-import SomaHBC.tasks  # noqa: F401
+import OneHBC.tasks  # noqa: F401
+
 MAX_STEPS = 100
 
 
@@ -43,8 +53,14 @@ def main():
 
     with launch_simulation(env_cfg, args_cli):
         # override with CLI arguments
-        env_cfg.scene.num_envs = args_cli.num_envs if args_cli.num_envs is not None else env_cfg.scene.num_envs
-        env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
+        env_cfg.scene.num_envs = (
+            args_cli.num_envs
+            if args_cli.num_envs is not None
+            else env_cfg.scene.num_envs
+        )
+        env_cfg.sim.device = (
+            args_cli.device if args_cli.device is not None else env_cfg.sim.device
+        )
         if args_cli.disable_fabric:
             env_cfg.sim.use_fabric = False
 

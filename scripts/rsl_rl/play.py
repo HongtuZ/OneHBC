@@ -31,35 +31,62 @@ from isaaclab_rl.rsl_rl import (
 from isaaclab_rl.utils.pretrained_checkpoint import get_published_pretrained_checkpoint
 
 import isaaclab_tasks  # noqa: F401
-from isaaclab_tasks.utils import add_launcher_args, get_checkpoint_path, launch_simulation
+from isaaclab_tasks.utils import (
+    add_launcher_args,
+    get_checkpoint_path,
+    launch_simulation,
+)
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
 # local imports
 import cli_args  # isort: skip
 
-import SomaHBC.tasks  # noqa: F401
+import OneHBC.tasks  # noqa: F401
+
 with contextlib.suppress(ImportError):
     import isaaclab_tasks_experimental  # noqa: F401
 
 # -- argparse ----------------------------------------------------------------
 parser = argparse.ArgumentParser(description="Train an RL agent with RSL-RL.")
-parser.add_argument("--video", action="store_true", default=False, help="Record videos during training.")
-parser.add_argument("--video_length", type=int, default=200, help="Length of the recorded video (in steps).")
 parser.add_argument(
-    "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
+    "--video", action="store_true", default=False, help="Record videos during training."
 )
-parser.add_argument("--num_envs", type=int, default=None, help="Number of environments to simulate.")
+parser.add_argument(
+    "--video_length",
+    type=int,
+    default=200,
+    help="Length of the recorded video (in steps).",
+)
+parser.add_argument(
+    "--disable_fabric",
+    action="store_true",
+    default=False,
+    help="Disable fabric and use USD I/O operations.",
+)
+parser.add_argument(
+    "--num_envs", type=int, default=None, help="Number of environments to simulate."
+)
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument(
-    "--agent", type=str, default="rsl_rl_cfg_entry_point", help="Name of the RL agent configuration entry point."
+    "--agent",
+    type=str,
+    default="rsl_rl_cfg_entry_point",
+    help="Name of the RL agent configuration entry point.",
 )
-parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
+parser.add_argument(
+    "--seed", type=int, default=None, help="Seed used for the environment"
+)
 parser.add_argument(
     "--use_pretrained_checkpoint",
     action="store_true",
     help="Use the pre-trained checkpoint from Nucleus.",
 )
-parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
+parser.add_argument(
+    "--real-time",
+    action="store_true",
+    default=False,
+    help="Run in real-time, if possible.",
+)
 cli_args.add_rsl_rl_args(parser)
 add_launcher_args(parser)
 args_cli, hydra_args = parser.parse_known_args()
@@ -74,7 +101,10 @@ installed_version = metadata.version("rsl-rl-lib")
 
 
 @hydra_task_config(args_cli.task, args_cli.agent)
-def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: RslRlBaseRunnerCfg):
+def main(
+    env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg,
+    agent_cfg: RslRlBaseRunnerCfg,
+):
     """Play with RSL-RL agent."""
     with launch_simulation(env_cfg, args_cli):
         # grab task name for checkpoint path
@@ -83,7 +113,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
         # override configurations with non-hydra CLI arguments
         agent_cfg = cli_args.update_rsl_rl_cfg(agent_cfg, args_cli)
-        env_cfg.scene.num_envs = args_cli.num_envs if args_cli.num_envs is not None else env_cfg.scene.num_envs
+        env_cfg.scene.num_envs = (
+            args_cli.num_envs
+            if args_cli.num_envs is not None
+            else env_cfg.scene.num_envs
+        )
 
         # handle deprecated configurations
         agent_cfg = handle_deprecated_rsl_rl_cfg(agent_cfg, installed_version)
@@ -91,7 +125,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         # set the environment seed
         # note: certain randomizations occur in the environment initialization so we set the seed here
         env_cfg.seed = agent_cfg.seed
-        env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
+        env_cfg.sim.device = (
+            args_cli.device if args_cli.device is not None else env_cfg.sim.device
+        )
 
         # specify directory for logging experiments
         log_root_path = os.path.join("logs", "rsl_rl", agent_cfg.experiment_name)
@@ -100,12 +136,16 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         if args_cli.use_pretrained_checkpoint:
             resume_path = get_published_pretrained_checkpoint("rsl_rl", train_task_name)
             if not resume_path:
-                print("[INFO] Unfortunately a pre-trained checkpoint is currently unavailable for this task.")
+                print(
+                    "[INFO] Unfortunately a pre-trained checkpoint is currently unavailable for this task."
+                )
                 return
         elif args_cli.checkpoint:
             resume_path = retrieve_file_path(args_cli.checkpoint)
         else:
-            resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
+            resume_path = get_checkpoint_path(
+                log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint
+            )
 
         log_dir = os.path.dirname(resume_path)
 
@@ -113,7 +153,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         env_cfg.log_dir = log_dir
 
         # create isaac environment
-        env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
+        env = gym.make(
+            args_cli.task,
+            cfg=env_cfg,
+            render_mode="rgb_array" if args_cli.video else None,
+        )
 
         # convert to single-agent instance if required by the RL algorithm
         if isinstance(env.unwrapped.cfg, DirectMARLEnvCfg):
@@ -139,9 +183,13 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         print(f"[INFO]: Loading model checkpoint from: {resume_path}")
         # load previously trained model
         if agent_cfg.class_name == "OnPolicyRunner":
-            runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
+            runner = OnPolicyRunner(
+                env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device
+            )
         elif agent_cfg.class_name == "DistillationRunner":
-            runner = DistillationRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
+            runner = DistillationRunner(
+                env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device
+            )
         else:
             raise ValueError(f"Unsupported runner class: {agent_cfg.class_name}")
         runner.load(resume_path)
@@ -173,8 +221,18 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 normalizer = None
 
             # export to JIT and ONNX
-            export_policy_as_jit(policy_nn, normalizer=normalizer, path=export_model_dir, filename="policy.pt")
-            export_policy_as_onnx(policy_nn, normalizer=normalizer, path=export_model_dir, filename="policy.onnx")
+            export_policy_as_jit(
+                policy_nn,
+                normalizer=normalizer,
+                path=export_model_dir,
+                filename="policy.pt",
+            )
+            export_policy_as_onnx(
+                policy_nn,
+                normalizer=normalizer,
+                path=export_model_dir,
+                filename="policy.onnx",
+            )
 
         dt = env.unwrapped.step_dt
 

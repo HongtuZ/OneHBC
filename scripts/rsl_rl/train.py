@@ -24,10 +24,18 @@ from isaaclab.envs import DirectMARLEnvCfg, DirectRLEnvCfg, ManagerBasedRLEnvCfg
 from isaaclab.utils.dict import print_dict
 from isaaclab.utils.io import dump_yaml
 
-from isaaclab_rl.rsl_rl import RslRlBaseRunnerCfg, RslRlVecEnvWrapper, handle_deprecated_rsl_rl_cfg
+from isaaclab_rl.rsl_rl import (
+    RslRlBaseRunnerCfg,
+    RslRlVecEnvWrapper,
+    handle_deprecated_rsl_rl_cfg,
+)
 
 import isaaclab_tasks  # noqa: F401
-from isaaclab_tasks.utils import add_launcher_args, get_checkpoint_path, launch_simulation
+from isaaclab_tasks.utils import (
+    add_launcher_args,
+    get_checkpoint_path,
+    launch_simulation,
+)
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
 # local imports
@@ -35,7 +43,8 @@ import cli_args  # isort: skip
 
 logger = logging.getLogger(__name__)
 
-import SomaHBC.tasks  # noqa: F401
+import OneHBC.tasks  # noqa: F401
+
 with contextlib.suppress(ImportError):
     import isaaclab_tasks_experimental  # noqa: F401
 
@@ -49,21 +58,46 @@ torch.backends.cudnn.benchmark = False
 # -- argparse ----------------------------------------------------------------
 parser = argparse.ArgumentParser(description="Train an RL agent with RSL-RL.")
 parser.add_argument("--video", action="store_true", default=False, help="Record videos during training.")
-parser.add_argument("--video_length", type=int, default=200, help="Length of the recorded video (in steps).")
-parser.add_argument("--video_interval", type=int, default=2000, help="Interval between video recordings (in steps).")
+parser.add_argument(
+    "--video_length",
+    type=int,
+    default=200,
+    help="Length of the recorded video (in steps).",
+)
+parser.add_argument(
+    "--video_interval",
+    type=int,
+    default=2000,
+    help="Interval between video recordings (in steps).",
+)
 parser.add_argument("--num_envs", type=int, default=None, help="Number of environments to simulate.")
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument(
-    "--agent", type=str, default="rsl_rl_cfg_entry_point", help="Name of the RL agent configuration entry point."
+    "--agent",
+    type=str,
+    default="rsl_rl_cfg_entry_point",
+    help="Name of the RL agent configuration entry point.",
 )
 parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
 parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy training iterations.")
 parser.add_argument(
-    "--distributed", action="store_true", default=False, help="Run training with multiple GPUs or nodes."
+    "--distributed",
+    action="store_true",
+    default=False,
+    help="Run training with multiple GPUs or nodes.",
 )
-parser.add_argument("--export_io_descriptors", action="store_true", default=False, help="Export IO descriptors.")
 parser.add_argument(
-    "--ray-proc-id", "-rid", type=int, default=None, help="Automatically configured by Ray integration, otherwise None."
+    "--export_io_descriptors",
+    action="store_true",
+    default=False,
+    help="Export IO descriptors.",
+)
+parser.add_argument(
+    "--ray-proc-id",
+    "-rid",
+    type=int,
+    default=None,
+    help="Automatically configured by Ray integration, otherwise None.",
 )
 cli_args.add_rsl_rl_args(parser)
 add_launcher_args(parser)
@@ -78,9 +112,23 @@ sys.argv = [sys.argv[0]] + hydra_args
 installed_version = metadata.version("rsl-rl-lib")
 if version.parse(installed_version) < version.parse(RSL_RL_VERSION):
     if platform.system() == "Windows":
-        cmd = [r".\isaaclab.bat", "-p", "-m", "pip", "install", f"rsl-rl-lib=={RSL_RL_VERSION}"]
+        cmd = [
+            r".\isaaclab.bat",
+            "-p",
+            "-m",
+            "pip",
+            "install",
+            f"rsl-rl-lib=={RSL_RL_VERSION}",
+        ]
     else:
-        cmd = ["./isaaclab.sh", "-p", "-m", "pip", "install", f"rsl-rl-lib=={RSL_RL_VERSION}"]
+        cmd = [
+            "./isaaclab.sh",
+            "-p",
+            "-m",
+            "pip",
+            "install",
+            f"rsl-rl-lib=={RSL_RL_VERSION}",
+        ]
     print(
         f"Please install the correct version of RSL-RL.\nExisting version is: '{installed_version}'"
         f" and required version is: '{RSL_RL_VERSION}'.\nTo install the correct version, run:"
@@ -90,7 +138,10 @@ if version.parse(installed_version) < version.parse(RSL_RL_VERSION):
 
 
 @hydra_task_config(args_cli.task, args_cli.agent)
-def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: RslRlBaseRunnerCfg):
+def main(
+    env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg,
+    agent_cfg: RslRlBaseRunnerCfg,
+):
     """Train with RSL-RL agent."""
     with launch_simulation(env_cfg, args_cli):
         # override configurations with non-hydra CLI arguments
@@ -152,7 +203,11 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         env_cfg.log_dir = log_dir
 
         # create isaac environment
-        env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
+        env = gym.make(
+            args_cli.task,
+            cfg=env_cfg,
+            render_mode="rgb_array" if args_cli.video else None,
+        )
 
         # convert to single-agent instance if required by the RL algorithm
         if isinstance(env.unwrapped.cfg, DirectMARLEnvCfg):
@@ -202,7 +257,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
         # run training
         try:
-            runner.learn(num_learning_iterations=agent_cfg.max_iterations, init_at_random_ep_len=True)
+            runner.learn(
+                num_learning_iterations=agent_cfg.max_iterations,
+                init_at_random_ep_len=True,
+            )
             print(f"Training time: {round(time.time() - start_time, 2)} seconds")
             # close the simulator
             env.close()
